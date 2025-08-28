@@ -1,0 +1,173 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyMrYCuWahk9sAbMutAxJ3Dm",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/svecx/Report-Script/blob/staging/CLEAN%20CODE\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "from datetime import datetime, timedelta\n",
+        "import os\n",
+        "\n",
+        "yesterday = (datetime.today() - timedelta(days=1)).strftime('%d%m%y')"
+      ],
+      "metadata": {
+        "id": "6pD-Xw2_9G2o"
+      },
+      "execution_count": 12,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def load_data():\n",
+        "  try:\n",
+        "    src = f'Data {yesterday}_ZBRI_SRC_RO_SMNT.XLSX'\n",
+        "    Dmedium = 'Daily Medium Corporate NDS Tagging 080825.xlsx'\n",
+        "\n",
+        "    if not os.path.exists(src):\n",
+        "      raise FileNotFoundError(f\"❌ File tidak ditemukan: {src}\")\n",
+        "    if not os.path.exists(Dmedium):\n",
+        "      raise FileNotFoundError(f\"❌ File tidak ditemukan: {Dmedium}\")\n",
+        "\n",
+        "    src = pd.read_excel(src)\n",
+        "    Dmedium = pd.read_excel(Dmedium, header=2)\n",
+        "\n",
+        "    if \"Unnamed: 0\" in Dmedium.columns:\n",
+        "      Dmedium = Dmedium.drop(columns=[\"Unnamed: 0\"])\n",
+        "\n",
+        "    return src, Dmedium\n",
+        "\n",
+        "  except Exception as e:\n",
+        "    print(f\"⚠️ Gagal load data: {e}\")\n",
+        "    return None, None\n",
+        "\n",
+        "\n",
+        "def merge_data(src, Dmedium):\n",
+        "  try:\n",
+        "    R_Src_RO = pd.merge(\n",
+        "        src,\n",
+        "        Dmedium[['RO Code', 'RO DESCRIPTION', 'SEGMENT']],\n",
+        "        left_on='Revenue Owner',\n",
+        "        right_on='RO Code',\n",
+        "        how=\"left\"\n",
+        "    )\n",
+        "    return R_Src_RO\n",
+        "\n",
+        "  except Exception as e:\n",
+        "    print(f\"⚠️ Gagal merge data: {e}\")\n",
+        "    return None\n"
+      ],
+      "metadata": {
+        "id": "XplI7xPJ-QyR",
+        "collapsed": true
+      },
+      "execution_count": 13,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def filter_data(R_Src_RO):\n",
+        "  if R_Src_RO is None:\n",
+        "    return None\n",
+        "\n",
+        "  try:\n",
+        "    R_Src_RO = R_Src_RO.rename(columns={\n",
+        "        \"RO DESCRIPTION\": \"RO Description\",\n",
+        "        \"SEGMENT\": \"Segment Description\"\n",
+        "    })\n",
+        "\n",
+        "    columns_order = [\n",
+        "          'Date','External Number - Source','External Number','Revenue Owner',\n",
+        "          'RO Description','Business Segment','Segment Description',\n",
+        "          'Rev Own & Segment Flag','Source System Basic Data','Changed by',\n",
+        "          'Changed On','Time of change'\n",
+        "    ]\n",
+        "\n",
+        "    existing_cols = [col for col in columns_order if col in R_Src_RO.columns]\n",
+        "    return R_Src_RO[existing_cols]\n",
+        "\n",
+        "  except Exception as e:\n",
+        "    print(f\"⚠️ Gagal filter data: {e}\")\n",
+        "    return None"
+      ],
+      "metadata": {
+        "id": "iZ_NCRfAhI8e",
+        "collapsed": true
+      },
+      "execution_count": 14,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def save_result(R_Src_RO):\n",
+        "    if R_Src_RO is None:\n",
+        "        print(\"❌ Tidak ada data untuk disimpan.\")\n",
+        "        return\n",
+        "    filename = f\"{yesterday}_ZBRI_SRC_RO_SMNT.xlsx\"\n",
+        "    try:\n",
+        "        R_Src_RO.to_excel(filename, index=False)\n",
+        "        print(f\"📂 File berhasil disimpan: {filename}\")\n",
+        "    except Exception as e:\n",
+        "        print(f\"⚠️ Gagal simpan file: {e}\")"
+      ],
+      "metadata": {
+        "id": "iyL8_1XyeNYa"
+      },
+      "execution_count": 15,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "src, Dmedium = load_data()\n",
+        "df_result = merge_data(src, Dmedium)\n",
+        "df_result = filter_data(df_result)\n",
+        "save_result(df_result)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "jfzIuVHeiLrm",
+        "outputId": "f7c60275-0c2f-4282-c7f5-a2d0dd951efe"
+      },
+      "execution_count": 16,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "📂 File berhasil disimpan: 270825_ZBRI_SRC_RO_SMNT.xlsx\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
